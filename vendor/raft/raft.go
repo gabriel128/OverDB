@@ -1,25 +1,46 @@
 package raft
 
-import "sync/atomic"
 import "math/rand"
 import "time"
 import "log"
 import "io/ioutil"
 import "net/rpc"
+import "dialers"
 
 var _ = ioutil.Discard
 
+// For testing Mostly
+func (rf *Raft) GetState() (int, bool) {
+	rf.mu.Lock()
+	isLeader := rf.state == "leader"
+	currentTerm := rf.currentTerm
+	rf.mu.Unlock()
+
+	return currentTerm, isLeader
+}
+
+func (rf *Raft) Id() int {
+	return rf.me
+}
+//
+
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
-	// log.Println(rf.peers[server])
 	err := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 	if err != nil {
 		log.Println("Error on AppendEntries", err)
+
+		client, err1 := dialers.DialHttp(server)
+
+		if err1 == nil {
+			rf.peers[server] = client
+			log.Println("Reconnecting", server)
+		}
 	}
+
 	return err == nil
 }
 
 func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
-	// log.Println(rf.peers[server])
 	err := rf.peers[server].Call("Raft.RequestVote", args, reply)
 	if err != nil {
 		log.Println("Error on sendRequestVote", err)
@@ -27,20 +48,12 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 	return err == nil
 }
 
-// func (rf *Raft) Kill() {
-//	atomic.StoreInt32(&rf.dead, 1)
-// }
-
-func (rf *Raft) killed() bool {
-	z := atomic.LoadInt32(&rf.dead)
-	return z == 1
-}
-
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) error {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
 	becomeFollowerIfBiggerTerm(rf, args.Term)
+
 	if args.Term < rf.currentTerm {
 		reply.VoteGranted = false
 	} else if rf.votedFor == -1 || rf.votedFor == args.CandidateId {
@@ -64,7 +77,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	becomeFollowerIfBiggerTerm(rf, args.Term)
 
-	if rf.state == "candidate" {
+	if rf.state == "candidate"  {
 		rf.state = "follower"
 		rf.votedFor = -1
 		log.Printf("[%d] [%s] became follower cause HB", rf.me, rf.state)
@@ -106,7 +119,7 @@ func heartBeat(rf *Raft) {
 				}
 			}
 		}
-		time.Sleep(time.Duration(300) * time.Millisecond)
+		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 }
 
@@ -122,7 +135,7 @@ func sleepRandomElectionTime(rf *Raft) {
 	for {
 		rand.Seed(time.Now().UnixNano())
 		min := 1000
-		max := 3000
+		max := 2000
 		rtime := rand.Intn(max - min + 1) + min
 		log.Printf("[%d] [%s] New Election time [%d]", rf.me, rf.state, rtime)
 		time.Sleep(time.Duration(rtime) * time.Millisecond)
@@ -169,7 +182,6 @@ func startElection(rf *Raft, term int) {
 		}
 	}
 
-
 	votes := 1
 	for i, _ := range rf.peers {
 		if i != rf.me && <-voted {
@@ -209,8 +221,10 @@ func (rf *Raft) Start(peers map[int]*rpc.Client) {
 	go heartBeat(rf)
 }
 
-func CreateRaftServer(me int) *Raft {
-	// log.SetOutput(ioutil.Discard)
+func CreateRaftServer(me int, logs bool) *Raft {
+	if !logs {
+		log.SetOutput(ioutil.Discard)
+	}
 	rf := &Raft{}
 	rf.me = me
 
