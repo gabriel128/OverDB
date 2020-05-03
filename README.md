@@ -31,8 +31,8 @@ the first parameter is the "local" server port and the other 2 are the other ser
 
 ### TODO
 
-[x] Raft Leader Election
-[ ] Raft Append new log Entries
-[ ] Raft persistent state
-[ ] Build a key value store on top of it
-[ ] Log Compaction (Maybe)
+- [x] Raft Leader Election
+- [ ] Raft Append new log Entries
+- [ ] Raft persistent state
+- [ ] Build a key value store on top of it
+- [ ] Log Compaction (Maybe)
