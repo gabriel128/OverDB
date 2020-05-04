@@ -5,8 +5,8 @@ import (
 	"net"
 	"log"
 	"strconv"
-	"raft"
-	"dialers"
+	"kgv/src/raft"
+	"kgv/src/dialers"
 	"net/http"
 )
 
@@ -45,7 +45,7 @@ func startTcpServer(port int, raft *raft.Raft) {
 	}
 }
 
-func StartHttpRPC(port1 int, port2 int, port3 int) *raft.Raft {
+func StartHttpRPCServer(port1 int, port2 int, port3 int) *raft.Raft {
 	raftServer := raft.CreateRaftServer(port1, true)
 
 	go startHttpServer(port1, raftServer)

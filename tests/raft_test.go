@@ -1,9 +1,9 @@
 package test
 
 import "testing"
-import "comms"
+import "kgv/src/comms"
 import "log"
-import "raft"
+import "kgv/src/raft"
 import "math/rand"
 import "time"
 // import "net"

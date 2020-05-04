@@ -5,7 +5,7 @@ import "time"
 import "log"
 import "io/ioutil"
 import "net/rpc"
-import "dialers"
+import "kgv/src/dialers"
 
 var _ = ioutil.Discard
 
@@ -29,6 +29,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	if err != nil {
 		log.Println("Error on AppendEntries", err)
 
+		time.Sleep(1 * time.Second)
 		client, err1 := dialers.DialHttp(server)
 
 		if err1 == nil {
@@ -119,7 +120,7 @@ func heartBeat(rf *Raft) {
 				}
 			}
 		}
-		time.Sleep(time.Duration(100) * time.Millisecond)
+		time.Sleep(time.Duration(500) * time.Millisecond)
 	}
 }
 
@@ -134,8 +135,8 @@ func becomeFollowerIfBiggerTerm(rf *Raft, term int) {
 func sleepRandomElectionTime(rf *Raft) {
 	for {
 		rand.Seed(time.Now().UnixNano())
-		min := 1000
-		max := 2000
+		min := 3000
+		max := 6000
 		rtime := rand.Intn(max - min + 1) + min
 		log.Printf("[%d] [%s] New Election time [%d]", rf.me, rf.state, rtime)
 		time.Sleep(time.Duration(rtime) * time.Millisecond)
