@@ -60,6 +60,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) erro
 	} else if rf.votedFor == -1 || rf.votedFor == args.CandidateId {
 		rf.votedFor = args.CandidateId
 		reply.VoteGranted = true
+		rf.receivedHB = true
 	} else {
 		reply.VoteGranted = false
 	}
@@ -156,6 +157,8 @@ func startElection(rf *Raft, term int) {
 	rf.votedFor = rf.me
 	rf.currentTerm++
 	rf.state = "candidate"
+	rf.receivedHB = true
+
 	log.Printf("[%d] [%s] became candidate of term %d", rf.me, rf.state, rf.currentTerm)
 	rf.mu.Unlock()
 
