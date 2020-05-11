@@ -7,7 +7,7 @@ import (
 	"kgv/src/raft"
 	"strconv"
 	"log"
-	// "time"
+	"time"
 	"kgv/src/servers"
 )
 
@@ -31,6 +31,7 @@ func main() {
 
 	var text string
 
+	time.Sleep(1 * time.Second)
 	for {
 		if rf == nil {
 			continue
@@ -39,6 +40,7 @@ func main() {
 		fmt.Println("Enter a command, possible commands: ")
 		fmt.Println("1. getlogs [Show logs in current server]")
 		fmt.Println("2. anything [Anything that is not getlogs will get inserted in the logs]")
+		fmt.Println("3. snapshot [create snapshot]")
 		fmt.Print("> ")
 
 		fmt.Scanln(&text)
@@ -50,6 +52,13 @@ func main() {
 
 		if "getlogs" == strings.ToLower(trimmedInput) {
 			log.Printf("[Logs] %+v\n", rf.GetLogs())
+		} else if "snapshot" == strings.ToLower(trimmedInput) {
+			isLeader := rf.TakeSnapshot("somedata")
+
+			if !isLeader {
+				log.Printf("Can't snapshot a non leader")
+			}
+
 		} else {
 			index, term, isLeader := rf.SendCommand(trimmedInput)
 

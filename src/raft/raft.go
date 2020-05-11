@@ -7,6 +7,8 @@ import log "github.com/sirupsen/logrus"
 import "time"
 import "os"
 
+var initialSnapshot LogEntry = LogEntry{IsSnapshot: true, Term: 0, Data: ""}
+
 func init() {
 	// Log as JSON instead of the default ASCII formatter.
 	// log.SetFormatter(&log.JSONFormatter{})
@@ -30,7 +32,7 @@ func (rf *Raft) GetState() (int, bool) {
 }
 
 func (rf *Raft) GetLogs() []LogEntry {
-	return rf.log[1:]
+	return rf.log
 }
 
 func (rf *Raft) Id() int {
@@ -83,9 +85,10 @@ func otherPeers(rf *Raft) []int {
 
 func appendToLog(rf *Raft, command interface{}) {
 	rf.mu.Lock()
-
 	newEntryTerm := rf.currentTerm
-	rf.log = append(rf.log, LogEntry{Term: rf.currentTerm, Command: command})
+	logEntry := LogEntry{Term: rf.currentTerm, Command: command}
+	rf.log = append(rf.log, logEntry)
+
 	rf.mu.Unlock()
 
 	success := make(chan bool)
@@ -101,6 +104,7 @@ func appendToLog(rf *Raft, command interface{}) {
 				}
 
 				prevLogIndex := len(rf.log) - 2
+
 				var entries []LogEntry;
 
 				if overrideLogs {
@@ -124,6 +128,10 @@ func appendToLog(rf *Raft, command interface{}) {
 				rf.mu.Unlock()
 
 				ok, reply := sendAppendEntriesRPC(rf, i, args)
+
+				if !ok {
+					time.Sleep(3 * time.Second)
+				}
 
 				if ok && reply.Success {
 					success<-true
@@ -155,18 +163,20 @@ func applyLastCommit(rf *Raft, applyCh chan ApplyMsg) {
 	for {
 		rf.mu.Lock()
 		if rf.commitIndex > rf.lastApplied {
-			// log.Printf("[%d] [%s] [Applied log] %+v, commitIndex: %d", rf.me, rf.state, rf.log, rf.commitIndex)
+			log.Printf("[%d] [%s] [Applied log] %+v, commitIndex: %d", rf.me, rf.state, rf.log, rf.commitIndex)
+
 			rf.lastApplied++
 			logEntry := rf.log[rf.lastApplied]
 
-			go func(lastApplied int) {
+
+			go func() {
 				rf.persist()
 
 				applyCh <- ApplyMsg{
 					CommandValid: true,
 					Command: logEntry.Command,
 					CommandIndex: len(rf.log) - 1}
-			}(rf.lastApplied)
+			}()
 
 		}
 		rf.mu.Unlock()
@@ -211,9 +221,11 @@ func CreateRaftServer(me int, logs bool) *Raft {
 	rf.votedFor = -1
 	rf.state = "follower"
 	rf.receivedHB = false
-	rf.log = append(rf.log, LogEntry{Term: 0, Command: 0})
 	rf.readPersisted()
 
+	if len(rf.log) == 0 {
+		rf.log = append(rf.log, initialSnapshot)
+	}
 
 	return rf
 }

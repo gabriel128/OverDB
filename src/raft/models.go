@@ -16,6 +16,8 @@ type ApplyMsg struct {
 type LogEntry struct {
 	Term int
 	Command interface{}
+	IsSnapshot bool
+	Data interface{}
 }
 
 type RaftDao struct {

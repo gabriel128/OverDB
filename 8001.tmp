@@ -1,0 +1,36 @@
+{
+	"CurrentTerm": 40,
+	"VotedFor": 8002,
+	"Log": [
+		{
+			"Term": 32,
+			"Command": null,
+			"IsSnapshot": true,
+			"Data": "somedata"
+		},
+		{
+			"Term": 34,
+			"Command": "hgf'jhg'",
+			"IsSnapshot": false,
+			"Data": null
+		},
+		{
+			"Term": 39,
+			"Command": "jhg",
+			"IsSnapshot": false,
+			"Data": null
+		},
+		{
+			"Term": 40,
+			"Command": "kjh",
+			"IsSnapshot": false,
+			"Data": null
+		},
+		{
+			"Term": 40,
+			"Command": "bbbb",
+			"IsSnapshot": false,
+			"Data": null
+		}
+	]
+}
