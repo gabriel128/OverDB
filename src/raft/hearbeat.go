@@ -34,6 +34,6 @@ func heartBeat(rf *Raft) {
 				}(i, rf.currentTerm)
 			}
 		}
-		time.Sleep(time.Duration(100) * time.Millisecond)
+		time.Sleep(time.Duration(config.heartBeatRateMs) * time.Millisecond)
 	}
 }

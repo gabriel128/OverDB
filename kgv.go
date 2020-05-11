@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"log"
 	// "time"
-	// "bufio"
-	// "runtime"
 	"kgv/src/comms"
 )
 
@@ -31,42 +29,31 @@ func main() {
 	// go comms.StartTcpRaftServer(port2, port3, port1)
 	// go comms.StartTcpRaftServer(port3, port1, port2)
 	// go func() {
-	//	for {
-	//		if rf == nil {
-	//			continue
-	//		}
 
-	//		log.Printf("[%d][Logs] %+v", rf.Id(), rf.GetLogs())
-
-	//		time.Sleep(3*time.Second)
-	//	}
-	// }()
-	// input := bufio.NewReader(os.Stdin)
 	var text string
+
 	for {
 		if rf == nil {
 			continue
 		}
 
-		fmt.Print("Enter command [GetLog] [Anything]: ")
-
-		// text, _ := reader.ReadString('\n')
+		fmt.Println("Enter a command, possible commands: ")
+		fmt.Println("1. getlog [Show logs in current server]")
+		fmt.Println("2. anything [Anything that is not getlogs will get inserted in the logs]")
+		fmt.Print("> ")
 
 		fmt.Scanln(&text)
-		if "getlog" == strings.ToLower(text) {
+		trimmedInput := strings.TrimSpace(text)
+		if "getlog" == strings.ToLower(trimmedInput) {
 			log.Printf("[Logs] %+v\n", rf.GetLogs())
 		} else {
-			rf.Start(text)
+			_, _, isLeader := rf.Start(trimmedInput)
+
+			msg := <-cmd_response
+			log.Println(msg)
+			if !isLeader {
+				log.Printf("[Logs] Sorry Not a leader\n")
+			}
 		}
-
-
-		// _,_,isLeader := rf.Start("holaPepe")
-
-
-		// response := <-cmd_response
-
-		// log.Printf("[%d] Reponse is %+v, isLeader is %t", rf.Id(), response, isLeader)
-
-		// time.Sleep(5*time.Second)
 	}
 }

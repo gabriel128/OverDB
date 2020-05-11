@@ -6,10 +6,10 @@ import log "github.com/sirupsen/logrus"
 
 func sleepRandomElectionTime(rf *Raft) {for {
 		rand.Seed(time.Now().UnixNano())
-		min := 3000
-		max := 6000
+		min := config.minElectionTimeMs
+		max := config.maxElectionTimeMs
 		rtime := rand.Intn(max - min + 1) + min
-		log.Printf("[%d] [%s] New Election time [%d]", rf.me, rf.state, rtime)
+		// log.Printf("[%d] [%s] New Election time [%d]", rf.me, rf.state, rtime)
 		time.Sleep(time.Duration(rtime) * time.Millisecond)
 
 		rf.mu.Lock()
