@@ -1,7 +1,7 @@
 package test
 
 import "testing"
-import "kgv/src/comms"
+import "kgv/src/servers"
 import log "github.com/sirupsen/logrus"
 import "kgv/src/raft"
 import "math/rand"
@@ -15,14 +15,14 @@ func TestInitialElection(t *testing.T) {
 	serversReady := make(chan bool)
 
 	go func() {
-		rf := comms.StartTcpRaftServer(8000, 8001, 8002, true)
+		rf := servers.StartTcpRaftServer(8000, 8001, 8002, true)
 		peers[8000] = rf
 
 		serversReady<-true
 	}()
 
 	go func() {
-		rf := comms.StartTcpRaftServer(8001, 8002, 8000, true)
+		rf := servers.StartTcpRaftServer(8001, 8002, 8000, true)
 
 		peers[8001] = rf
 
@@ -30,7 +30,7 @@ func TestInitialElection(t *testing.T) {
 	}()
 
 	go func() {
-		rf := comms.StartTcpRaftServer(8002, 8000, 8001, true)
+		rf := servers.StartTcpRaftServer(8002, 8000, 8001, true)
 		peers[8002] = rf
 
 		serversReady<-true
@@ -62,14 +62,14 @@ func TestInitialElection(t *testing.T) {
 //	serversReady := make(chan bool)
 
 //	go func() {
-//		rf := comms.StartTcpRaftServer(8000, 8001, 8002, true)
+//		rf := servers.StartTcpRaftServer(8000, 8001, 8002, true)
 //		peers[8000] = rf
 
 //		serversReady<-true
 //	}()
 
 //	go func() {
-//		rf := comms.StartTcpRaftServer(8001, 8002, 8000, true)
+//		rf := servers.StartTcpRaftServer(8001, 8002, 8000, true)
 
 //		peers[8001] = rf
 
@@ -77,7 +77,7 @@ func TestInitialElection(t *testing.T) {
 //	}()
 
 //	go func() {
-//		rf := comms.StartTcpRaftServer(8002, 8000, 8001, true)
+//		rf := servers.StartTcpRaftServer(8002, 8000, 8001, true)
 //		peers[8002] = rf
 
 //		serversReady<-true

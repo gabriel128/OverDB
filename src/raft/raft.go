@@ -87,7 +87,7 @@ func (rf *Raft) readPersist(data []byte) {
 	// }
 }
 
-func (rf *Raft) Start(command interface{}) (int, int, bool) {
+func (rf *Raft) SendCommand(command interface{}) (int, int, bool) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 

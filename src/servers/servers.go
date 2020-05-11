@@ -1,4 +1,4 @@
-package comms
+package servers
 
 import (
 	"net/rpc"

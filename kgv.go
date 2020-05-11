@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"log"
 	// "time"
-	"kgv/src/comms"
+	"kgv/src/servers"
 )
 
 func main() {
@@ -22,13 +22,12 @@ func main() {
 	var rf *raft.Raft
 
 	go func() {
-		rf = comms.StartHttpRPCServer(port1, port2, port3, cmd_response)
+		rf = servers.StartHttpRPCServer(port1, port2, port3, cmd_response)
 	}()
 
-	// go comms.StartTcpRaftServer(port1, port2, port3, true)
-	// go comms.StartTcpRaftServer(port2, port3, port1)
-	// go comms.StartTcpRaftServer(port3, port1, port2)
-	// go func() {
+	// go servers.StartTcpRaftServer(port1, port2, port3, true)
+	// go servers.StartTcpRaftServer(port2, port3, port1)
+	// go servers.StartTcpRaftServer(port3, port1, port2)
 
 	var text string
 
@@ -38,21 +37,35 @@ func main() {
 		}
 
 		fmt.Println("Enter a command, possible commands: ")
-		fmt.Println("1. getlog [Show logs in current server]")
+		fmt.Println("1. getlogs [Show logs in current server]")
 		fmt.Println("2. anything [Anything that is not getlogs will get inserted in the logs]")
 		fmt.Print("> ")
 
 		fmt.Scanln(&text)
 		trimmedInput := strings.TrimSpace(text)
-		if "getlog" == strings.ToLower(trimmedInput) {
+
+		if trimmedInput == "" {
+			continue
+		}
+
+		if "getlogs" == strings.ToLower(trimmedInput) {
 			log.Printf("[Logs] %+v\n", rf.GetLogs())
 		} else {
-			_, _, isLeader := rf.Start(trimmedInput)
+			index, term, isLeader := rf.SendCommand(trimmedInput)
 
-			msg := <-cmd_response
-			log.Println(msg)
-			if !isLeader {
-				log.Printf("[Logs] Sorry Not a leader\n")
+			log.Printf("[Sending command] on index %d, Term %d \n\n", index, term)
+
+			if isLeader {
+				msg := <-cmd_response
+
+				if msg.CommandIndex != index {
+					log.Printf("[Error] applying command %+v", msg)
+				} else {
+					log.Printf("[Success] Message applied %+v", msg)
+					log.Printf("[Success] Log are now: %+v", rf.GetLogs())
+				}
+			} else {
+				log.Printf("Can't apply commant to not leader\n")
 			}
 		}
 	}
