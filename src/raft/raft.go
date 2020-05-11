@@ -1,127 +1,214 @@
 package raft
 
-import "math/rand"
-import "time"
-import "log"
+import "sync/atomic"
 import "io/ioutil"
 import "net/rpc"
-import "kgv/src/dialers"
+import log "github.com/sirupsen/logrus"
+import "time"
+import "os"
 
-var _ = ioutil.Discard
+func init() {
+	// Log as JSON instead of the default ASCII formatter.
+	// log.SetFormatter(&log.JSONFormatter{})
 
-// For testing Mostly
+	// Output to stdout instead of the default stderr
+	// Can be any io.Writer, see below for File example
+	log.SetOutput(os.Stdout)
+
+	// Only log the warning severity or above.
+	// log.SetLevel(log.WarnLevel)
+}
+
 func (rf *Raft) GetState() (int, bool) {
 	rf.mu.Lock()
 	isLeader := rf.state == "leader"
 	currentTerm := rf.currentTerm
+	log.Printf("[%d] [%s]", rf.me, rf.state)
 	rf.mu.Unlock()
 
 	return currentTerm, isLeader
 }
 
+func (rf *Raft) GetLogs() []LogEntry {
+	return rf.log[1:]
+}
+
 func (rf *Raft) Id() int {
 	return rf.me
 }
+
+func (rf *Raft) Kill() {
+	atomic.StoreInt32(&rf.dead, 1)
+	// Your code here, if desired.
+}
+
+func (rf *Raft) killed() bool {
+	z := atomic.LoadInt32(&rf.dead)
+	return z == 1
+}
+
+
 //
+// save Raft's persistent state to stable storage,
+// where it can later be retrieved after a crash and restart.
+// see paper's Figure 2 for a description of what should be persistent.
+//
+func (rf *Raft) persist() {
+	// Your code here (2C).
+	// Example:
+	// w := new(bytes.Buffer)
+	// e := labgob.NewEncoder(w)
+	// e.Encode(rf.xxx)
+	// e.Encode(rf.yyy)
+	// data := w.Bytes()
+	// rf.persister.SaveRaftState(data)
+}
 
-func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
-	err := rf.peers[server].Call("Raft.AppendEntries", args, reply)
-	if err != nil {
-		log.Println("Error on AppendEntries", err)
 
-		time.Sleep(1 * time.Second)
-		client, err1 := dialers.DialHttp(server)
+//
+// restore previously persisted state.
+//
+func (rf *Raft) readPersist(data []byte) {
+	if data == nil || len(data) < 1 { // bootstrap without any state?
+		return
+	}
+	// Your code here (2C).
+	// Example:
+	// r := bytes.NewBuffer(data)
+	// d := labgob.NewDecoder(r)
+	// var xxx
+	// var yyy
+	// if d.Decode(&xxx) != nil ||
+	//    d.Decode(&yyy) != nil {
+	//   error...
+	// } else {
+	//   rf.xxx = xxx
+	//   rf.yyy = yyy
+	// }
+}
 
-		if err1 == nil {
-			rf.peers[server] = client
-			log.Println("Reconnecting", server)
+func (rf *Raft) SendCommand(command interface{}) (int, int, bool) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	if rf.state == "leader" {
+		go appendToLog(rf, command)
+		return len(rf.log), rf.currentTerm, true
+	} else {
+		return -1, -1, false
+	}
+}
+
+func sendAppendEntriesRPC(rf *Raft, i int, args AppendEntriesArgs) (bool , AppendEntriesReply) {
+	reply := AppendEntriesReply{}
+
+	ok := rf.sendAppendEntries(i, &args, &reply)
+
+	rf.mu.Lock()
+	becomeFollowerIfBiggerTerm(rf, reply.Term)
+	rf.mu.Unlock()
+
+	return ok, reply
+}
+
+func otherPeers(rf *Raft) []int {
+	others := []int{}
+	for i, _ := range rf.peers {
+		if i != rf.me {
+			others = append(others, i)
 		}
 	}
-
-	return err == nil
+	return others
 }
 
-func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *RequestVoteReply) bool {
-	err := rf.peers[server].Call("Raft.RequestVote", args, reply)
-	if err != nil {
-		log.Println("Error on sendRequestVote", err)
-	}
-	return err == nil
-}
-
-func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) error {
+func appendToLog(rf *Raft, command interface{}) {
 	rf.mu.Lock()
-	defer rf.mu.Unlock()
 
-	becomeFollowerIfBiggerTerm(rf, args.Term)
+	newEntryTerm := rf.currentTerm
+	rf.log = append(rf.log, LogEntry{Term: rf.currentTerm, Command: command})
+	rf.mu.Unlock()
 
-	if args.Term < rf.currentTerm {
-		reply.VoteGranted = false
-	} else if rf.votedFor == -1 || rf.votedFor == args.CandidateId {
-		rf.votedFor = args.CandidateId
-		reply.VoteGranted = true
-		rf.receivedHB = true
-	} else {
-		reply.VoteGranted = false
-	}
+	success := make(chan bool)
+	for _, i := range otherPeers(rf) {
+		go func(i int, term int) {
+			overrideLogs := false
+			for {
+				rf.mu.Lock()
 
-	reply.Term = rf.currentTerm
-	return nil
-}
+				if rf.state != "leader" || rf.currentTerm != newEntryTerm {
+					rf.mu.Unlock()
+					break
+				}
 
-func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) error {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
+				prevLogIndex := len(rf.log) - 2
+				var entries []LogEntry;
 
-	log.Printf("[%d] [%s] Received HB from [%d] for Term [%d]", rf.me, rf.state, args.LeaderId, args.Term)
+				if overrideLogs {
+					entries = rf.log
+				} else {
+					entries = []LogEntry{lastLogEntry(rf)}
+				}
 
-	rf.receivedHB = true
+				// log.Printf("PrevLogIndex for [%d] is %d and Entries sent is %+v, lastApplied %d", i, prevLogIndex, entries, lastApplied)
 
-	becomeFollowerIfBiggerTerm(rf, args.Term)
+				args := AppendEntriesArgs{
+					Term: term,
+					LeaderId: rf.me,
+					OverrideLogs: overrideLogs,
+					PrevLogIndex: prevLogIndex,
+					PrevLogTerm: rf.log[prevLogIndex].Term,
+					Entries: entries,
+					LeaderCommit: rf.commitIndex,
+				}
 
-	if rf.state == "candidate"  {
-		rf.state = "follower"
-		rf.votedFor = -1
-		log.Printf("[%d] [%s] became follower cause HB", rf.me, rf.state)
-	}
+				rf.mu.Unlock()
 
-	if args.Term < rf.currentTerm {
-		reply.Success = false
-	} else {
-		reply.Success = true
-	}
+				ok, reply := sendAppendEntriesRPC(rf, i, args)
 
-	reply.Term = rf.currentTerm
-	return nil
-}
-
-func heartBeat(rf *Raft) {
-	for {
-		rf.mu.Lock()
-		state := rf.state
-		rf.mu.Unlock()
-
-		if state == "leader" {
-			for i, _ := range rf.peers {
-				if i != rf.me {
-					go func(i int, term int) {
-						args := &AppendEntriesArgs{Term: term, LeaderId: rf.me}
-						reply := AppendEntriesReply{}
-
-						ok := rf.sendAppendEntries(i, args, &reply)
-
-						if !ok {
-							return
-						}
-
-						rf.mu.Lock()
-						becomeFollowerIfBiggerTerm(rf, reply.Term)
-						rf.mu.Unlock()
-					}(i, rf.currentTerm)
+				if ok && reply.Success {
+					success<-true
+					break
+				} else if ok {
+					overrideLogs = true
 				}
 			}
+		}(i, rf.currentTerm)
+	}
+
+	appendSuccesses := 1
+	for range otherPeers(rf) {
+		if <-success {
+			appendSuccesses++
+
+			rf.mu.Lock()
+			if appendSuccesses > len(rf.peers)/2 && newEntryTerm == rf.currentTerm {
+				rf.commitIndex++
+				rf.mu.Unlock()
+				return
+			}
+			rf.mu.Unlock()
 		}
-		time.Sleep(time.Duration(500) * time.Millisecond)
+	}
+}
+
+func applyLastCommit(rf *Raft, applyCh chan ApplyMsg) {
+	for {
+		rf.mu.Lock()
+		if rf.commitIndex > rf.lastApplied {
+			// log.Printf("[%d] [%s] [Applied log] %+v, commitIndex: %d", rf.me, rf.state, rf.log, rf.commitIndex)
+			rf.lastApplied++
+			logEntry := rf.log[rf.lastApplied]
+
+			go func(lastApplied int) {
+				applyCh <- ApplyMsg{
+					CommandValid: true,
+					Command: logEntry.Command,
+					CommandIndex: lastApplied}
+			}(rf.lastApplied)
+
+		}
+		rf.mu.Unlock()
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -130,99 +217,49 @@ func becomeFollowerIfBiggerTerm(rf *Raft, term int) {
 		rf.currentTerm = term
 		rf.state = "follower"
 		rf.votedFor = -1
-		log.Printf("[%d] [%s] became follower with currentTerm [%d]", rf.me, rf.state, rf.currentTerm)
-	}
-}
-func sleepRandomElectionTime(rf *Raft) {
-	for {
-		rand.Seed(time.Now().UnixNano())
-		min := 3000
-		max := 6000
-		rtime := rand.Intn(max - min + 1) + min
-		log.Printf("[%d] [%s] New Election time [%d]", rf.me, rf.state, rtime)
-		time.Sleep(time.Duration(rtime) * time.Millisecond)
-
-		rf.mu.Lock()
-		if rf.receivedHB {
-			rf.receivedHB = false
-		} else {
-			rf.mu.Unlock()
-			break
-		}
-		rf.mu.Unlock()
-	}
-}
-func startElection(rf *Raft, term int) {
-	rf.mu.Lock()
-	rf.votedFor = rf.me
-	rf.currentTerm++
-	rf.state = "candidate"
-	rf.receivedHB = true
-
-	log.Printf("[%d] [%s] became candidate of term %d", rf.me, rf.state, rf.currentTerm)
-	rf.mu.Unlock()
-
-	voted := make(chan bool)
-	for i, _ := range rf.peers {
-		if i != rf.me {
-			go func(i int, currentTerm int) {
-
-				rf.mu.Lock()
-				currentTerm2 := rf.currentTerm
-
-				args := RequestVoteArgs{Term: currentTerm2, CandidateId: rf.me}
-				reply := RequestVoteReply{}
-
-				rf.mu.Unlock()
-
-				ok := rf.sendRequestVote(i, &args, &reply)
-
-				rf.mu.Lock()
-				becomeFollowerIfBiggerTerm(rf, reply.Term)
-				rf.mu.Unlock()
-
-				voted <- ok && reply.VoteGranted
-			}(i, rf.currentTerm)
-		}
-	}
-
-	votes := 1
-	for i, _ := range rf.peers {
-		if i != rf.me && <-voted {
-			votes++
-
-			if votes > len(rf.peers)/2 && rf.state == "candidate" && rf.currentTerm == (term + 1) {
-				rf.mu.Lock()
-				rf.state = "leader"
-				log.Printf("[%d] [%s] became Leader of term %d", rf.me, rf.state, rf.currentTerm)
-				rf.mu.Unlock()
-				return
-			}
-		}
+		log.Printf("[%d] [%s] just became follower with currentTerm [%d]", rf.me, rf.state, rf.currentTerm)
 	}
 }
 
-func electionTimer(rf *Raft) {
-	for {
-		sleepRandomElectionTime(rf)
-
-		rf.mu.Lock()
-		state := rf.state
-		rf.mu.Unlock()
-
-		if state == "leader" {
-			continue
-		}
-
-		startElection(rf, rf.currentTerm)
+func lastLogEntry(rf *Raft) LogEntry {
+	if len(rf.log) == 0 {
+		return LogEntry{Term: 0, Command: 0}
+	} else {
+		return rf.log[len(rf.log)-1]
 	}
 }
 
-func (rf *Raft) Start(peers map[int]*rpc.Client) {
+// func Make(peers []*labrpc.ClientEnd, me int, persister *Persister, applyCh chan ApplyMsg) *Raft {
+//	// log.SetOutput(ioutil.Discard)
+
+//	rf := &Raft{}
+//	rf.peers = peers
+//	rf.persister = persister
+//	rf.me = me
+
+//	rf.commitIndex = 0
+//	rf.lastApplied = 0
+//	rf.votedFor = -1
+//	rf.state = "follower"
+//	rf.receivedHB = false
+//	rf.log = append(rf.log, LogEntry{Term: 0, Command: 0})
+
+//	go electionTimer(rf)
+//	go heartBeat(rf)
+//	go applyLastCommit(rf, applyCh)
+
+//	// initialize from state persisted before a crash
+//	rf.readPersist(persister.ReadRaftState())
+
+//	return rf
+// }
+
+func (rf *Raft) StartServer(peers map[int]*rpc.Client, applyCh chan ApplyMsg) {
 	rf.peers = peers
 
 	go electionTimer(rf)
 	go heartBeat(rf)
+	go applyLastCommit(rf, applyCh)
 }
 
 func CreateRaftServer(me int, logs bool) *Raft {
@@ -232,11 +269,13 @@ func CreateRaftServer(me int, logs bool) *Raft {
 	rf := &Raft{}
 	rf.me = me
 
-	rf.commitedIndex = 0
+	rf.commitIndex = 0
 	rf.lastApplied = 0
 	rf.votedFor = -1
 	rf.state = "follower"
 	rf.receivedHB = false
+	rf.log = append(rf.log, LogEntry{Term: 0, Command: 0})
+
 
 	return rf
 }

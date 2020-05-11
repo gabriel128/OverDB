@@ -32,8 +32,8 @@ func DialHttp(port int) (*rpc.Client, error) {
 		client, err = rpc.DialHTTP("tcp", "localhost:" + strconv.Itoa(port))
 
 		if err != nil {
-			log.Println("Dial for port", strconv.Itoa(port), "failed", err)
-			time.Sleep(5 * time.Second)
+			// log.Println("Dial for port", strconv.Itoa(port), "failed", err)
+			time.Sleep(2 * time.Second)
 		} else {
 			break
 		}
