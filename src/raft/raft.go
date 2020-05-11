@@ -47,46 +47,6 @@ func (rf *Raft) killed() bool {
 	return z == 1
 }
 
-
-//
-// save Raft's persistent state to stable storage,
-// where it can later be retrieved after a crash and restart.
-// see paper's Figure 2 for a description of what should be persistent.
-//
-func (rf *Raft) persist() {
-	// Your code here (2C).
-	// Example:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// data := w.Bytes()
-	// rf.persister.SaveRaftState(data)
-}
-
-
-//
-// restore previously persisted state.
-//
-func (rf *Raft) readPersist(data []byte) {
-	if data == nil || len(data) < 1 { // bootstrap without any state?
-		return
-	}
-	// Your code here (2C).
-	// Example:
-	// r := bytes.NewBuffer(data)
-	// d := labgob.NewDecoder(r)
-	// var xxx
-	// var yyy
-	// if d.Decode(&xxx) != nil ||
-	//    d.Decode(&yyy) != nil {
-	//   error...
-	// } else {
-	//   rf.xxx = xxx
-	//   rf.yyy = yyy
-	// }
-}
-
 func (rf *Raft) SendCommand(command interface{}) (int, int, bool) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -200,10 +160,12 @@ func applyLastCommit(rf *Raft, applyCh chan ApplyMsg) {
 			logEntry := rf.log[rf.lastApplied]
 
 			go func(lastApplied int) {
+				rf.persist()
+
 				applyCh <- ApplyMsg{
 					CommandValid: true,
 					Command: logEntry.Command,
-					CommandIndex: lastApplied}
+					CommandIndex: len(rf.log) - 1}
 			}(rf.lastApplied)
 
 		}
@@ -229,31 +191,6 @@ func lastLogEntry(rf *Raft) LogEntry {
 	}
 }
 
-// func Make(peers []*labrpc.ClientEnd, me int, persister *Persister, applyCh chan ApplyMsg) *Raft {
-//	// log.SetOutput(ioutil.Discard)
-
-//	rf := &Raft{}
-//	rf.peers = peers
-//	rf.persister = persister
-//	rf.me = me
-
-//	rf.commitIndex = 0
-//	rf.lastApplied = 0
-//	rf.votedFor = -1
-//	rf.state = "follower"
-//	rf.receivedHB = false
-//	rf.log = append(rf.log, LogEntry{Term: 0, Command: 0})
-
-//	go electionTimer(rf)
-//	go heartBeat(rf)
-//	go applyLastCommit(rf, applyCh)
-
-//	// initialize from state persisted before a crash
-//	rf.readPersist(persister.ReadRaftState())
-
-//	return rf
-// }
-
 func (rf *Raft) StartServer(peers map[int]*rpc.Client, applyCh chan ApplyMsg) {
 	rf.peers = peers
 
@@ -275,6 +212,7 @@ func CreateRaftServer(me int, logs bool) *Raft {
 	rf.state = "follower"
 	rf.receivedHB = false
 	rf.log = append(rf.log, LogEntry{Term: 0, Command: 0})
+	rf.readPersisted()
 
 
 	return rf

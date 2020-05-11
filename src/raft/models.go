@@ -18,6 +18,12 @@ type LogEntry struct {
 	Command interface{}
 }
 
+type RaftDao struct {
+	CurrentTerm int
+	VotedFor int
+	Log []LogEntry
+}
+
 type Raft struct {
 	mu        sync.Mutex          // Lock to protect shared access to this peer's state
 	peers     map[int]*rpc.Client // RPC end points of all peers
@@ -25,12 +31,11 @@ type Raft struct {
 	dead      int32               // set by Kill()
 
 	// Persistent State
-	lastApplied int
 	currentTerm int
 	votedFor int
 	// log []interface{}
 	log []LogEntry
-
+	lastApplied int
 	// Volatile state
 	commitIndex int
 
