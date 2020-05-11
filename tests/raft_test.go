@@ -2,7 +2,7 @@ package test
 
 import "testing"
 import "kgv/src/comms"
-import "log"
+import log "github.com/sirupsen/logrus"
 import "kgv/src/raft"
 import "math/rand"
 import "time"

@@ -13,9 +13,11 @@ type ApplyMsg struct {
 	CommandIndex int
 }
 
-//
-// A Go object implementing a single Raft peer.
-//
+type LogEntry struct {
+	Term int
+	Command interface{}
+}
+
 type Raft struct {
 	mu        sync.Mutex          // Lock to protect shared access to this peer's state
 	peers     map[int]*rpc.Client // RPC end points of all peers
@@ -23,17 +25,14 @@ type Raft struct {
 	dead      int32               // set by Kill()
 
 	// Persistent State
+	lastApplied int
 	currentTerm int
 	votedFor int
-	log []string
+	// log []interface{}
+	log []LogEntry
 
 	// Volatile state
-	commitedIndex int
-	lastApplied int
-
-	// Volatile leader state
-	nextIndex []int
-	matchIndex []int
+	commitIndex int
 
 	state string
 	receivedHB bool
@@ -42,6 +41,8 @@ type Raft struct {
 type RequestVoteArgs struct {
 	Term int
 	CandidateId int
+	LastLogIndex int
+	LastLogTerm int
 }
 
 type RequestVoteReply struct {
@@ -54,9 +55,10 @@ type AppendEntriesArgs struct {
 	LeaderId int
 	PrevLogIndex int
 	PrevLogTerm int
+	OverrideLogs bool
 
-	Entries []string
-	LeaderCommitIndex int
+	Entries []LogEntry
+	LeaderCommit int
 }
 
 type AppendEntriesReply struct {
