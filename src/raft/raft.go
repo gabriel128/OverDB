@@ -163,11 +163,11 @@ func applyLastCommit(rf *Raft, applyCh chan ApplyMsg) {
 	for {
 		rf.mu.Lock()
 		if rf.commitIndex > rf.lastApplied {
-			log.Printf("[%d] [%s] [Applied log] %+v, commitIndex: %d", rf.me, rf.state, rf.log, rf.commitIndex)
 
 			rf.lastApplied++
 			logEntry := rf.log[rf.lastApplied]
 
+			log.Printf("[%d] [%s] [Applied log] %+v, commitIndex: %d", rf.me, rf.state, rf.log, rf.commitIndex)
 
 			go func() {
 				rf.persist()

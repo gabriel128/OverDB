@@ -66,7 +66,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		appendEntriesToLog(rf, args)
 	} else {
 		reply.Success = false
-		return nil
 	}
 
 	if args.LeaderCommit > rf.commitIndex {
