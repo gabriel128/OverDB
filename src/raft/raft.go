@@ -7,6 +7,8 @@ import log "github.com/sirupsen/logrus"
 import "time"
 import "os"
 
+var initialSnapshot LogEntry = LogEntry{IsSnapshot: true, Term: 0, Data: ""}
+
 func init() {
 	// Log as JSON instead of the default ASCII formatter.
 	// log.SetFormatter(&log.JSONFormatter{})
@@ -30,7 +32,7 @@ func (rf *Raft) GetState() (int, bool) {
 }
 
 func (rf *Raft) GetLogs() []LogEntry {
-	return rf.log[1:]
+	return rf.log
 }
 
 func (rf *Raft) Id() int {
@@ -45,46 +47,6 @@ func (rf *Raft) Kill() {
 func (rf *Raft) killed() bool {
 	z := atomic.LoadInt32(&rf.dead)
 	return z == 1
-}
-
-
-//
-// save Raft's persistent state to stable storage,
-// where it can later be retrieved after a crash and restart.
-// see paper's Figure 2 for a description of what should be persistent.
-//
-func (rf *Raft) persist() {
-	// Your code here (2C).
-	// Example:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// data := w.Bytes()
-	// rf.persister.SaveRaftState(data)
-}
-
-
-//
-// restore previously persisted state.
-//
-func (rf *Raft) readPersist(data []byte) {
-	if data == nil || len(data) < 1 { // bootstrap without any state?
-		return
-	}
-	// Your code here (2C).
-	// Example:
-	// r := bytes.NewBuffer(data)
-	// d := labgob.NewDecoder(r)
-	// var xxx
-	// var yyy
-	// if d.Decode(&xxx) != nil ||
-	//    d.Decode(&yyy) != nil {
-	//   error...
-	// } else {
-	//   rf.xxx = xxx
-	//   rf.yyy = yyy
-	// }
 }
 
 func (rf *Raft) SendCommand(command interface{}) (int, int, bool) {
@@ -123,9 +85,10 @@ func otherPeers(rf *Raft) []int {
 
 func appendToLog(rf *Raft, command interface{}) {
 	rf.mu.Lock()
-
 	newEntryTerm := rf.currentTerm
-	rf.log = append(rf.log, LogEntry{Term: rf.currentTerm, Command: command})
+	logEntry := LogEntry{Term: rf.currentTerm, Command: command}
+	rf.log = append(rf.log, logEntry)
+
 	rf.mu.Unlock()
 
 	success := make(chan bool)
@@ -141,6 +104,7 @@ func appendToLog(rf *Raft, command interface{}) {
 				}
 
 				prevLogIndex := len(rf.log) - 2
+
 				var entries []LogEntry;
 
 				if overrideLogs {
@@ -164,6 +128,10 @@ func appendToLog(rf *Raft, command interface{}) {
 				rf.mu.Unlock()
 
 				ok, reply := sendAppendEntriesRPC(rf, i, args)
+
+				if !ok {
+					time.Sleep(3 * time.Second)
+				}
 
 				if ok && reply.Success {
 					success<-true
@@ -195,16 +163,20 @@ func applyLastCommit(rf *Raft, applyCh chan ApplyMsg) {
 	for {
 		rf.mu.Lock()
 		if rf.commitIndex > rf.lastApplied {
-			// log.Printf("[%d] [%s] [Applied log] %+v, commitIndex: %d", rf.me, rf.state, rf.log, rf.commitIndex)
+
 			rf.lastApplied++
 			logEntry := rf.log[rf.lastApplied]
 
-			go func(lastApplied int) {
+			log.Printf("[%d] [%s] [Applied log] %+v, commitIndex: %d", rf.me, rf.state, rf.log, rf.commitIndex)
+
+			go func() {
+				rf.persist()
+
 				applyCh <- ApplyMsg{
 					CommandValid: true,
 					Command: logEntry.Command,
-					CommandIndex: lastApplied}
-			}(rf.lastApplied)
+					CommandIndex: len(rf.log) - 1}
+			}()
 
 		}
 		rf.mu.Unlock()
@@ -229,31 +201,6 @@ func lastLogEntry(rf *Raft) LogEntry {
 	}
 }
 
-// func Make(peers []*labrpc.ClientEnd, me int, persister *Persister, applyCh chan ApplyMsg) *Raft {
-//	// log.SetOutput(ioutil.Discard)
-
-//	rf := &Raft{}
-//	rf.peers = peers
-//	rf.persister = persister
-//	rf.me = me
-
-//	rf.commitIndex = 0
-//	rf.lastApplied = 0
-//	rf.votedFor = -1
-//	rf.state = "follower"
-//	rf.receivedHB = false
-//	rf.log = append(rf.log, LogEntry{Term: 0, Command: 0})
-
-//	go electionTimer(rf)
-//	go heartBeat(rf)
-//	go applyLastCommit(rf, applyCh)
-
-//	// initialize from state persisted before a crash
-//	rf.readPersist(persister.ReadRaftState())
-
-//	return rf
-// }
-
 func (rf *Raft) StartServer(peers map[int]*rpc.Client, applyCh chan ApplyMsg) {
 	rf.peers = peers
 
@@ -274,8 +221,11 @@ func CreateRaftServer(me int, logs bool) *Raft {
 	rf.votedFor = -1
 	rf.state = "follower"
 	rf.receivedHB = false
-	rf.log = append(rf.log, LogEntry{Term: 0, Command: 0})
+	rf.readPersisted()
 
+	if len(rf.log) == 0 {
+		rf.log = append(rf.log, initialSnapshot)
+	}
 
 	return rf
 }

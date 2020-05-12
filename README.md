@@ -41,9 +41,9 @@ concurrency and I like CSP stuff. I might re-write it in Haskell some day...
 
 - [x] Raft Leader Election
 - [x] Raft replicated log
-- [ ] Raft persistent log
+- [x] Raft persistent log
+- [x] Log Compaction/Snapshots
 - [ ] Build a key value store on top of it
-- [ ] Log Compaction/Snapshots
 - [ ] Distributed transactions
 - [ ] Sharded servers
 - [ ] Vector clocks (or Lamport timestamps)

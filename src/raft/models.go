@@ -16,6 +16,14 @@ type ApplyMsg struct {
 type LogEntry struct {
 	Term int
 	Command interface{}
+	IsSnapshot bool
+	Data interface{}
+}
+
+type RaftDao struct {
+	CurrentTerm int
+	VotedFor int
+	Log []LogEntry
 }
 
 type Raft struct {
@@ -25,12 +33,11 @@ type Raft struct {
 	dead      int32               // set by Kill()
 
 	// Persistent State
-	lastApplied int
 	currentTerm int
 	votedFor int
 	// log []interface{}
 	log []LogEntry
-
+	lastApplied int
 	// Volatile state
 	commitIndex int
 

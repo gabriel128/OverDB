@@ -46,7 +46,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		log.Printf("[%d] [%s] just became follower cause HB or log from leader", rf.me, rf.state)
 	}
 
-	// reply.LogConflict = false
 	reply.Term = rf.currentTerm
 	reply.Success = true
 
@@ -67,12 +66,41 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		appendEntriesToLog(rf, args)
 	} else {
 		reply.Success = false
-		return nil
 	}
 
 	if args.LeaderCommit > rf.commitIndex {
 		rf.commitIndex = min(args.LeaderCommit, len(rf.log) - 1)
 	}
+
+	return nil
+}
+
+func (rf *Raft) SetSnapshot(args *AppendEntriesArgs, reply *AppendEntriesReply) error {
+	rf.mu.Lock()
+
+	rf.receivedHB = true
+
+	becomeFollowerIfBiggerTerm(rf, args.Term)
+
+	if rf.state == "candidate" {
+		rf.state = "follower"
+		rf.votedFor = -1
+		log.Printf("[%d] [%s] just became follower cause HB or log from leader", rf.me, rf.state)
+	}
+
+	reply.Term = rf.currentTerm
+	reply.Success = true
+
+	if args.Term < rf.currentTerm || args.LeaderCommit < rf.commitIndex {
+		reply.Success = false
+		return nil
+	} else {
+		rf.log = args.Entries
+		rf.commitIndex = 0
+		rf.lastApplied = 0
+	}
+	rf.mu.Unlock()
+	rf.persist()
 
 	return nil
 }

@@ -1,0 +1,12 @@
+{
+	"CurrentTerm": 45,
+	"VotedFor": 8000,
+	"Log": [
+		{
+			"Term": 45,
+			"Command": null,
+			"IsSnapshot": true,
+			"Data": "somedata"
+		}
+	]
+}
