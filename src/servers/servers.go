@@ -63,21 +63,20 @@ func StartHttpRPCServer(port1 int, port2 int, port3 int, applyCh chan raft.Apply
 	return raftServer
 }
 
-func StartTcpRaftServer(port1 int, port2 int, port3 int, logs bool) *raft.Raft {
+func StartTcpRaftServer(port1 int, port2 int, port3 int, logs bool, applyCh chan raft.ApplyMsg) *raft.Raft {
 	raftServer := raft.CreateRaftServer(port1, logs)
 
-	// go startTcpServer(port1, raftServer)
+	go startTcpServer(port1, raftServer)
 
-	// client1, _ := dialers.DialTCP(port2)
-	// client2, _ := dialers.DialTCP(port3)
+	client1, _ := dialers.DialTCP(port2)
+	client2, _ := dialers.DialTCP(port3)
 
-	// peers := map[int]*rpc.Client{
-	//	port2: client1,
-	//	port3: client2,
-	// }
+	peers := map[int]*rpc.Client{
+		port2: client1,
+		port3: client2,
+	}
 
-
-	// raftServer.StartServer(peers)
+	raftServer.StartServer(peers, applyCh)
 
 	return raftServer
 }
