@@ -1,12 +1,18 @@
 {
-	"CurrentTerm": 45,
-	"VotedFor": 8000,
+	"CurrentTerm": 46,
+	"VotedFor": 8002,
 	"Log": [
 		{
 			"Term": 45,
 			"Command": null,
 			"IsSnapshot": true,
 			"Data": "somedata"
+		},
+		{
+			"Term": 46,
+			"Command": "3",
+			"IsSnapshot": false,
+			"Data": null
 		}
 	]
 }

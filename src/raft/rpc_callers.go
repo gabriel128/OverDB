@@ -8,8 +8,8 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	if err != nil {
 		log.Println("Error on AppendEntries", err)
 
-		// client, err1 := dialers.DialHttp(server)
-		client, err1 := dialers.DialTCP(server)
+		client, err1 := dialers.DialHttp(server)
+		// client, err1 := dialers.DialTCP(server)
 
 		if err1 == nil {
 			rf.peers[server] = client

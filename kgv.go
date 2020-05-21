@@ -20,26 +20,27 @@ func main() {
 	port3, _ := strconv.Atoi(os.Args[4])
 
 	cmd_response := make(chan raft.ApplyMsg)
-	var rf1 *raft.Raft
-	var rf2 *raft.Raft
-	var rf3 *raft.Raft
+	var rf *raft.Raft
+	// var rf1 *raft.Raft
+	// var rf2 *raft.Raft
+	// var rf3 *raft.Raft
 
+
+	go func() {
+		rf = servers.StartHttpRPCServer(port1, port2, port3, cmd_response)
+	}()
 
 	// go func() {
-	//	rf = servers.StartHttpRPCServer(port1, port2, port3, cmd_response)
+	//	rf1 = servers.StartTcpRaftServer(port1, port2, port3, true, cmd_response)
 	// }()
 
-	go func() {
-		rf1 = servers.StartTcpRaftServer(port1, port2, port3, true, cmd_response)
-	}()
+	// go func() {
+	//	rf2 = servers.StartTcpRaftServer(port2, port3, port1, true, cmd_response)
+	// }()
 
-	go func() {
-		rf2 = servers.StartTcpRaftServer(port2, port3, port1, true, cmd_response)
-	}()
-
-	go func() {
-		rf3 = servers.StartTcpRaftServer(port3, port1, port2, true, cmd_response)
-	}()
+	// go func() {
+	//	rf3 = servers.StartTcpRaftServer(port3, port1, port2, true, cmd_response)
+	// }()
 
 	time.Sleep(5 * time.Second)
 
@@ -48,7 +49,7 @@ func main() {
 	for {
 		var text string
 
-		if rf1 == nil || rf2 == nil || rf3 == nil {
+		if rf == nil {
 			continue
 		}
 
@@ -73,41 +74,36 @@ func main() {
 		fmt.Println("")
 
 		if "get" == trimmedInput {
-			log.Printf("\n[Logs] %+v", rf1.GetLogs())
-			log.Printf("\n[Logs] %+v", rf2.GetLogs())
-			log.Printf("\n[Logs] %+v", rf3.GetLogs())
+			log.Printf("\n[Logs] %+v", rf.GetLogs())
 		} else if "raft" == trimmedInput {
-			log.Printf("\n[Raft State] %+v", rf1)
-			log.Printf("\n[Raft State] %+v", rf2)
-			log.Printf("\n[Raft State] %+v", rf3)
+			log.Printf("\n[Raft State] %+v", rf)
 		} else if "snapshot" == trimmedInput {
-			// isLeader := rf.TakeSnapshot("somedata")
+			isLeader := rf.TakeSnapshot("somedata")
 
-			// if !isLeader {
-			//	log.Printf("\n Can't snapshot a non leader")
-			// }
+			if !isLeader {
+				log.Printf("\n Can't snapshot a non leader")
+			}
 
 		} else if strings.HasPrefix(trimmedInput, "put ") {
+			command := strings.TrimSpace(strings.TrimLeft(text, "put"))
 
-			// command := strings.TrimSpace(strings.TrimLeft(text, "put"))
+			log.Println("About to put", strings.TrimSpace(command))
+			index, term, isLeader := rf.SendCommand(command)
 
-			// log.Println("About to put", strings.TrimSpace(command))
-			// index, term, isLeader := rf.SendCommand(command)
+			log.Printf("[Sending command] on index %d, Term %d \n\n", index, term)
 
-			// log.Printf("[Sending command] on index %d, Term %d \n\n", index, term)
+			if isLeader {
+				msg := <-cmd_response
 
-			// if isLeader {
-			//	msg := <-cmd_response
-
-			//	if msg.CommandIndex != index {
-			//		log.Printf("[Error] applying command %+v", msg)
-			//	} else {
-			//		log.Printf("[Success] Message applied %+v", msg)
-			//		log.Printf("[Success] Log are now: %+v", rf.GetLogs())
-			//	}
-			// } else {
-			//	log.Printf("Can't apply command to not leader\n")
-			// }
+				if msg.CommandIndex != index {
+					log.Printf("[Error] applying command %+v", msg)
+				} else {
+					log.Printf("[Success] Message applied %+v", msg)
+					log.Printf("[Success] Log are now: %+v", rf.GetLogs())
+				}
+			} else {
+				log.Printf("Can't apply command to not leader\n")
+			}
 		} else  {
 			log.Printf("Not Valid command sorry")
 		}
