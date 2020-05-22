@@ -1,9 +1,9 @@
 package test
 
 import "testing"
-import "kgv/src/servers"
+import "overdb/src/servers"
 import log "github.com/sirupsen/logrus"
-import "kgv/src/raft"
+import "overdb/src/raft"
 import "math/rand"
 import "time"
 // import "net"

@@ -1,6 +1,6 @@
 package raft
 
-import "kgv/src/dialers"
+import "overdb/src/dialers"
 import log "github.com/sirupsen/logrus"
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
