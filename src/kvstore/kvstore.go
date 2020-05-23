@@ -1,11 +1,19 @@
 package kvstore
 
-import "overdb/src/rm_server"
+// import "overdb/src/rm_server"
+import "log"
 
-type KVStore struct {
+type KvStore struct {
 
 }
 
-func (kv KVStore) Create() rm_server.RMServer {
+func Create() KvStore {
+	kv := KvStore{}
 	return kv
+}
+
+func (kv *KvStore) Put(args *int, reply *int) error {
+	log.Println("Put")
+
+	return nil
 }

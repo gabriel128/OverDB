@@ -3,10 +3,12 @@ package main
 import (
 	"log"
 	"os"
+	// "time"
 	"overdb/src/servers"
-	"overdb/src/transaction_manager"
+	"overdb/src/config"
+	// "overdb/src/tm"
 	"overdb/src/raft"
-	"overdb/src/kvstore"
+	// "overdb/src/kvstore"
 	"strconv"
 )
 
@@ -18,28 +20,26 @@ func main() {
 	serverNumber, _ := strconv.Atoi(os.Args[4])
 
 	commCh := make(chan raft.ApplyMsg)
-	config := servers.ServersConfig
+	s_config := config.Servers
 
 	if serverType == "tm" {
 
-		currentServer := config.TransactionManager[serverNumber]
-		peers := otherPeers(currentServer, config.TransactionManager)
+		currentServer := s_config.TransactionManager[serverNumber]
+		peers := otherPeers(currentServer, s_config.TransactionManager)
 
 		go func() {
 			log.Println("TM server ", currentServer,  "Starting ... ")
-			tm := transaction_manager.TransactionManager{}
-			servers.StartHttpRPCServer([]int{currentServer, peers[0], peers[1]}, tm, commCh)
+			servers.StartHttpTMServer([]int{currentServer, peers[0], peers[1]}, commCh)
 		}()
 
 	} else if serverType == "kv" {
 
-		currentServer := config.Kvstores[partitionNumber][serverNumber]
-		peers := otherPeers(currentServer, config.Kvstores[partitionNumber])
+		currentServer := s_config.Kvstores[partitionNumber][serverNumber]
+		peers := otherPeers(currentServer, s_config.Kvstores[partitionNumber])
 
 		go func() {
 			log.Println("KVstore partition server ", currentServer,  "Starting ... ")
-			kv := kvstore.KVStore{}
-			servers.StartHttpRPCServer([]int{currentServer, peers[0], peers[1]}, kv, commCh)
+			servers.StartHttpKvServer([]int{currentServer, peers[0], peers[1]}, commCh)
 		}()
 
 	}
