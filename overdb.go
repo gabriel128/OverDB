@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"overdb/src/servers"
+	"overdb/src/transaction_manager"
 	"overdb/src/raft"
 	"strconv"
 )
@@ -20,10 +21,10 @@ func main() {
 		currentServer := config.TransactionManager[serverNumber]
 		peers := otherPeers(currentServer, config.TransactionManager)
 
-		log.Println("Got here", currentServer, peers[0], peers[1])
-
 		go func() {
-			servers.StartHttpRPCServer(currentServer, peers[0], peers[1], commCh)
+			log.Println("TM server ", currentServer,  "Starting ... ")
+			tm := transaction_manager.TransactionManager{}
+			servers.StartHttpRPCServer([]int{currentServer, peers[0], peers[1]}, tm, commCh)
 		}()
 	}
 
@@ -35,7 +36,6 @@ func main() {
 func otherPeers(currentServer int, allServers []int) []int{
 	peers := []int{}
 	for _, peer := range(allServers) {
-		log.Println("Got here", peer)
 		if peer != currentServer {
 			peers = append(peers, peer)
 		}

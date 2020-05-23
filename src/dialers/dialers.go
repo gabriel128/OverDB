@@ -16,7 +16,7 @@ func DialTCP(port int) (*rpc.Client, error) {
 
 		if err != nil {
 			log.Println("Dial for port", strconv.Itoa(port), "failed", err)
-			time.Sleep(2 * time.Second)
+			// time.Sleep(2 * time.Second)
 		} else {
 			break
 		}
