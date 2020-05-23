@@ -32,7 +32,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	if len(args.Entries) > 0{
 		// log.Printf("[%d] [%s] Received entries are: %+v", rf.me, rf.state, args.Entries)
 	} else {
-		log.Printf("[%d] [%s] Received AppendEntries from [%d] for Term [%d]", rf.me, rf.state, args.LeaderId, args.Term)
+		// log.Printf("[%d] [%s] Received AppendEntries from [%d] for Term [%d]", rf.me, rf.state, args.LeaderId, args.Term)
 	}
 
 	rf.receivedHB = true

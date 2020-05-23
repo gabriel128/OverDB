@@ -6,7 +6,6 @@ type TransactionManager struct {
 
 }
 
-
 func (tm TransactionManager) Create() rm_server.RMServer {
 	return tm
 }

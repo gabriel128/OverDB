@@ -5,19 +5,19 @@ import (
 	"fmt"
 	"os"
 	"overdb/src/raft"
-	"strconv"
+	// "strconv"
 	"log"
 	"time"
-	"overdb/src/servers"
+	// "overdb/src/servers"
 	"bufio"
 )
 
 func raft_console() {
 	fmt.Println("KGV Starting ... ")
 
-	port1, _ := strconv.Atoi(os.Args[2])
-	port2, _ := strconv.Atoi(os.Args[3])
-	port3, _ := strconv.Atoi(os.Args[4])
+	// port1, _ := strconv.Atoi(os.Args[2])
+	// port2, _ := strconv.Atoi(os.Args[3])
+	// port3, _ := strconv.Atoi(os.Args[4])
 
 	cmd_response := make(chan raft.ApplyMsg)
 	var rf *raft.Raft
@@ -26,9 +26,9 @@ func raft_console() {
 	// var rf3 *raft.Raft
 
 
-	go func() {
-		rf = servers.StartHttpRPCServer(port1, port2, port3, cmd_response)
-	}()
+	// go func() {
+	//	rf = servers.StartHttpRPCServer(port1, port2, port3, cmd_response)
+	// }()
 
 	// go func() {
 	//	rf1 = servers.StartTcpRaftServer(port1, port2, port3, true, cmd_response)
