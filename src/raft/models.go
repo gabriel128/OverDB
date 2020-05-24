@@ -31,7 +31,6 @@ type Raft struct {
 	peers     map[int]*rpc.Client // RPC end points of all peers
 	me        int                 // this peer's index into peers[]
 	dead      int32               // set by Kill()
-
 	// Persistent State
 	currentTerm int
 	votedFor int
@@ -42,6 +41,7 @@ type Raft struct {
 	commitIndex int
 
 	state string
+	applyCh chan ApplyMsg
 	receivedHB bool
 }
 

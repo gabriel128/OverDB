@@ -25,13 +25,16 @@ func (rf *Raft) GetState() (int, bool) {
 	rf.mu.Lock()
 	isLeader := rf.state == "leader"
 	currentTerm := rf.currentTerm
-	log.Printf("[%d] [%s]", rf.me, rf.state)
+	// log.Printf("[%d] [%s]", rf.me, rf.state)
 	rf.mu.Unlock()
 
 	return currentTerm, isLeader
 }
 
 func (rf *Raft) GetLogs() []LogEntry {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
 	return rf.log
 }
 
@@ -203,6 +206,7 @@ func lastLogEntry(rf *Raft) LogEntry {
 
 func (rf *Raft) StartServer(peers map[int]*rpc.Client, applyCh chan ApplyMsg) {
 	rf.peers = peers
+	rf.applyCh = applyCh
 
 	go electionTimer(rf)
 	go heartBeat(rf)

@@ -9,7 +9,7 @@ import "encoding/json"
 import "sync"
 // import "time"
 
-const max_log_entries int = 2
+const max_log_entries int = 20
 
 type Element struct {
 	Val string
@@ -20,6 +20,7 @@ type KvStore struct {
 	mu sync.Mutex
 	raft *raft.Raft
 	raftCommCh chan(raft.ApplyMsg)
+	leaderResponse chan(raft.ApplyMsg)
 	store map[string][]Element
 }
 
@@ -50,14 +51,39 @@ type LogCommand  struct {
 	Args PutArgs
 }
 
-func Create(raft *raft.Raft, commCh chan raft.ApplyMsg) KvStore {
+func Create(rf *raft.Raft, commCh chan raft.ApplyMsg) KvStore {
 	kv := KvStore{}
-	kv.raft = raft
+	kv.raft = rf
 	kv.raftCommCh = commCh
 	kv.store = make(map[string][]Element)
+	kv.leaderResponse = make(chan raft.ApplyMsg)
 
-	recoverStateFromLogs(&kv, raft.GetLogs())
+	go loadLogsInMemory(&kv)
+	recoverStateFromLogs(&kv, rf.GetLogs())
 	return kv
+}
+
+func loadLogsInMemory(kv *KvStore) {
+	for {
+		if len(kv.raft.GetLogs()) > (max_log_entries + 1) {
+			log.Println("Taking snapshot")
+			handleSnapshotCreation(kv)
+		}
+
+		msg := <-kv.raftCommCh
+		log.Println("Got Here")
+
+		if msg.Command == "Snapshot" {
+			recoverStateFromLogs(kv, kv.raft.GetLogs())
+		} else {
+			storePut(kv, msg.Command.(string))
+		}
+
+		_, isLeader := kv.raft.GetState()
+		if isLeader {
+			kv.leaderResponse<-msg
+		}
+	}
 }
 
 func (kv *KvStore) Get(args *GetArgs, reply *GetReply) error {
@@ -80,32 +106,17 @@ func (kv *KvStore) Put(args *PutArgs, reply *PutReply) error {
 	log.Println("KvStore Put")
 
 	index, _, isLeader := kv.raft.SendCommand("Put,"+args.Key+","+args.Val+","+strconv.Itoa(args.Txn))
-	// command := LogCommand{"Put", *args}
-	// json_command, err := json.Marshal(command)
-
-	// if err != nil {
-	//	reply.Err = "Parse Error"
-	//	return errors.New("parse_error")
-	// }
-
-	// index, _, isLeader := kv.raft.SendCommand(json_command)
-
 
 	if !isLeader {
 		reply.IsLeader = false
 		reply.Err = "Not a leader"
 
-		go func(kv *KvStore) {
-			<-kv.raftCommCh
-			log.Printf("[KvStore got here]")
-			storePut(kv, args)
-		}(kv)
-
 		return errors.New("not_a_leader")
 	}
 
-	msg := <-kv.raftCommCh
+	msg := <-kv.leaderResponse
 
+	log.Printf("[KvStore Leader got here]")
 
 	if msg.CommandIndex != index {
 		log.Printf("[Error] applying command %+v", msg)
@@ -115,11 +126,8 @@ func (kv *KvStore) Put(args *PutArgs, reply *PutReply) error {
 
 		return errors.New("index_out_of_sync")
 	} else {
-		storePut(kv, args)
+		// storePut(kv, args)
 
-		if len(kv.raft.GetLogs()) > (max_log_entries + 1) {
-			go handleSnapshotCreation(kv)
-		}
 		log.Printf("[Success] Message applied %+v", msg)
 	}
 
@@ -133,31 +141,30 @@ func recoverStateFromLogs(kv *KvStore, logs []raft.LogEntry) {
 				log.Printf("Error Unmarshalling stuff")
 			}
 		} else if !logEntry.IsSnapshot {
-			split_input := strings.Split(logEntry.Command.(string), ",")
-
-			if split_input[0] == "Put" {
-				txn, _ := strconv.Atoi(split_input[3])
-				args := &PutArgs{Key: split_input[1], Val: split_input[2], Txn: txn}
-				storePut(kv, args)
-			}
+			storePut(kv, logEntry.Command.(string))
 		}
 	}
 }
 
-func storePut(kv *KvStore, args *PutArgs) {
+func storePut(kv *KvStore, command string) {
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
 
-	if vals, ok := kv.store[args.Key]; ok {
-		kv.store[args.Key] = append(vals, Element{Val: args.Val, Txn: args.Txn})
-	} else {
-		kv.store[args.Key] = []Element{Element{Val: args.Val, Txn: args.Txn}}
+	split_input := strings.Split(command, ",")
+
+	if split_input[0] == "Put" {
+		txn, _ := strconv.Atoi(split_input[3])
+		args := &PutArgs{Key: split_input[1], Val: split_input[2], Txn: txn}
+
+		if vals, ok := kv.store[args.Key]; ok {
+			kv.store[args.Key] = append(vals, Element{Val: args.Val, Txn: args.Txn})
+		} else {
+			kv.store[args.Key] = []Element{Element{Val: args.Val, Txn: args.Txn}}
+		}
 	}
 }
 
 func handleSnapshotCreation(kv *KvStore) {
-	// time.Sleep(1 * time.Second)
-
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
 
