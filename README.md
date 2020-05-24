@@ -33,7 +33,7 @@ This project implements a version of Raft based on this [paper](https://raft.git
 
 ### Distributed Transactions
 
-It implements something similar to determenistic transactions with only 1 phase commit, see the Docs mentiond below. Even if it's only 1 commit request, I call it *1.5 Phase commit*
+It implements something similar to determenistic transactions with only 1 phase commit, see the Docs mentioned below. Even if it's only 1 commit request, I call it *1.5 Phase commit*, again see the Docs for more info.
 
 ### Docs
 
@@ -41,7 +41,7 @@ The way the transactions work and the topology of the system is explained [HERE]
 
 ### Sharding
 
-For now it has consitently stpid sharding by a hash function and modulo on the quantity of servers. So migrations are manual. I might change it later
+For now it has "consitently stupid hashing" by a hash function and modulo on the quantity of servers. So migrations are manual. I might change it later to just "consistent hashing"
 
 ### Potential (overengineered of course) TODO
 
