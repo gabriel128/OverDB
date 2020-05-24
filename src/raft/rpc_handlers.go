@@ -91,6 +91,7 @@ func (rf *Raft) SetSnapshot(args *AppendEntriesArgs, reply *AppendEntriesReply) 
 	reply.Term = rf.currentTerm
 	reply.Success = true
 
+	var commitIndex int
 	if args.Term < rf.currentTerm || args.LeaderCommit < rf.commitIndex {
 		reply.Success = false
 		return nil
@@ -98,10 +99,18 @@ func (rf *Raft) SetSnapshot(args *AppendEntriesArgs, reply *AppendEntriesReply) 
 		rf.log = args.Entries
 		rf.commitIndex = 0
 		rf.lastApplied = 0
+		commitIndex = 0
 	}
-	rf.mu.Unlock()
-	rf.persist()
 
+	rf.mu.Unlock()
+
+	rf.applyCh <- ApplyMsg{
+		CommandValid: true,
+		Command: "Snapshot",
+		CommandIndex: commitIndex,
+	}
+
+	rf.persist()
 	return nil
 }
 

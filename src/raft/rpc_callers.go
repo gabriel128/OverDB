@@ -1,11 +1,14 @@
 package raft
 
-import "kgv/src/dialers"
+import "overdb/src/dialers"
 import log "github.com/sirupsen/logrus"
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
 	err := rf.peers[server].Call("Raft.AppendEntries", args, reply)
+
 	if err != nil {
+		rf.peers[server].Close()
+
 		log.Println("Error on AppendEntries", err)
 
 		client, err1 := dialers.DialHttp(server)

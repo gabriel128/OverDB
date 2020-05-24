@@ -11,6 +11,7 @@ func heartBeat(rf *Raft) {
 		if state == "leader" {
 			for _, i := range otherPeers(rf) {
 				go func(i int, term int) {
+					rf.mu.Lock()
 					args := &AppendEntriesArgs{
 						Term: term,
 						LeaderId: rf.me,
@@ -20,6 +21,7 @@ func heartBeat(rf *Raft) {
 						Entries: []LogEntry{},
 						LeaderCommit: rf.commitIndex,
 					}
+					rf.mu.Unlock()
 					reply := AppendEntriesReply{}
 
 					ok := rf.sendAppendEntries(i, args, &reply)

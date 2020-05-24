@@ -1,6 +1,6 @@
 package raft
 
-func (rf *Raft) TakeSnapshot(data interface{}) bool {
+func (rf *Raft) TakeSnapshot(data []byte) bool {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
@@ -13,7 +13,7 @@ func (rf *Raft) TakeSnapshot(data interface{}) bool {
 	}
 }
 
-func snapshotLog(rf *Raft, data interface{}) {
+func snapshotLog(rf *Raft, data []byte) {
 	rf.mu.Lock()
 
 	logEntry := LogEntry{Term: rf.currentTerm, IsSnapshot: true, Data: data}
