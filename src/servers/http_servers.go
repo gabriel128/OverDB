@@ -14,7 +14,7 @@ import (
 
 func StartHttpKvServer(ports []int, applyCh chan raft.ApplyMsg) (*raft.Raft, *kvstore.KvStore) {
 	raftServer := raft.CreateRaftServer(ports[0], true)
-	kv_server := kvstore.Create()
+	kv_server := kvstore.Create(raftServer, applyCh)
 
 	go startKvRpcServer(ports[0], raftServer, &kv_server)
 
