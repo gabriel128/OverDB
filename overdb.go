@@ -20,7 +20,6 @@ func main() {
 	partitionNumber, _ := strconv.Atoi(os.Args[3])
 	serverNumber, _ := strconv.Atoi(os.Args[4])
 
-	commCh := make(chan raft.ApplyMsg)
 	s_config := config.Servers
 
 	if serverType == "tm" {
@@ -28,6 +27,7 @@ func main() {
 		currentServer := s_config.TransactionManager[serverNumber]
 		peers := otherPeers(currentServer, s_config.TransactionManager)
 
+		commCh := make(chan raft.ApplyMsg)
 		go func() {
 			log.Println("TM server ", currentServer,  "Starting ... ")
 			servers.StartHttpTMServer([]int{currentServer, peers[0], peers[1]}, commCh)
@@ -38,6 +38,7 @@ func main() {
 		currentServer := s_config.Kvstores[partitionNumber][serverNumber]
 		peers := otherPeers(currentServer, s_config.Kvstores[partitionNumber])
 
+		commCh := make(chan raft.ApplyMsg)
 		go func() {
 			log.Println("KVstore partition server ", currentServer,  "Starting ... ")
 			servers.StartHttpKvServer([]int{currentServer, peers[0], peers[1]}, commCh)

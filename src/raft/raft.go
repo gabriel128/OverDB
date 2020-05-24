@@ -7,7 +7,7 @@ import log "github.com/sirupsen/logrus"
 import "time"
 import "os"
 
-var initialSnapshot LogEntry = LogEntry{IsSnapshot: true, Term: 0, Data: ""}
+var initialSnapshot LogEntry = LogEntry{IsSnapshot: true, Term: 0, Data: []byte{}}
 
 func init() {
 	// Log as JSON instead of the default ASCII formatter.
@@ -169,14 +169,14 @@ func applyLastCommit(rf *Raft, applyCh chan ApplyMsg) {
 
 			log.Printf("[%d] [%s] [Applied log] %+v, commitIndex: %d", rf.me, rf.state, rf.log, rf.commitIndex)
 
-			go func() {
+			go func(commandIndex int ) {
 				rf.persist()
 
 				applyCh <- ApplyMsg{
 					CommandValid: true,
 					Command: logEntry.Command,
-					CommandIndex: len(rf.log) - 1}
-			}()
+					CommandIndex: commandIndex}
+			}(len(rf.log) - 1)
 
 		}
 		rf.mu.Unlock()

@@ -6,4 +6,4 @@ type Config struct {
 	heartBeatRateMs int
 }
 
-var config Config = Config{3000, 7000, 1000}
+var config Config = Config{300, 500, 10}

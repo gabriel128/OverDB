@@ -1,6 +1,7 @@
 package raft
 
 import log "github.com/sirupsen/logrus"
+// import "log"
 
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) error {
 	rf.mu.Lock()
@@ -98,9 +99,9 @@ func (rf *Raft) SetSnapshot(args *AppendEntriesArgs, reply *AppendEntriesReply) 
 		rf.commitIndex = 0
 		rf.lastApplied = 0
 	}
+
 	rf.mu.Unlock()
 	rf.persist()
-
 	return nil
 }
 

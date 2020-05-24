@@ -17,7 +17,7 @@ type LogEntry struct {
 	Term int
 	Command interface{}
 	IsSnapshot bool
-	Data interface{}
+	Data []byte
 }
 
 type RaftDao struct {

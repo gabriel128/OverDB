@@ -78,7 +78,7 @@ func raft_console() {
 		} else if "raft" == trimmedInput {
 			log.Printf("\n[Raft State] %+v", rf)
 		} else if "snapshot" == trimmedInput {
-			isLeader := rf.TakeSnapshot("somedata")
+			isLeader := rf.TakeSnapshot([]byte(`"somedata"`))
 
 			if !isLeader {
 				log.Printf("\n Can't snapshot a non leader")
