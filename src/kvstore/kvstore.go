@@ -3,8 +3,9 @@ package kvstore
 import "overdb/src/raft"
 import "log"
 import "errors"
-// import "strconv"
-import "encoding/json"
+import "strconv"
+import "strings"
+// import "encoding/json"
 
 type Element struct {
 	val string
@@ -48,9 +49,9 @@ func Create(raft *raft.Raft, commCh chan raft.ApplyMsg) KvStore {
 	kv := KvStore{}
 	kv.raft = raft
 	kv.raftCommCh = commCh
+	kv.store = make(map[string][]Element)
 
-	// TODO: Recreate from logs
-
+	recoverStateFromLogs(&kv, raft.GetLogs())
 	return kv
 }
 
@@ -68,16 +69,16 @@ func (kv *KvStore) Get(args *GetArgs, reply *GetReply) error {
 func (kv *KvStore) Put(args *PutArgs, reply *PutReply) error {
 	log.Println("Put")
 
-	// index, _, isLeader := kv.raft.SendCommand("Put,a" + args.Val + "," + strconv.Itoa(args.txn))
-	command := LogCommand{"Put", *args}
-	json_command, err := json.Marshal(command)
+	index, _, isLeader := kv.raft.SendCommand("Put,a," + args.Val + "," + strconv.Itoa(args.Txn))
+	// command := LogCommand{"Put", *args}
+	// json_command, err := json.Marshal(command)
 
-	if err != nil {
-		reply.Err = "Parse Error"
-		return errors.New("parse_error")
-	}
+	// if err != nil {
+	//	reply.Err = "Parse Error"
+	//	return errors.New("parse_error")
+	// }
 
-	index, _, isLeader := kv.raft.SendCommand(json_command)
+	// index, _, isLeader := kv.raft.SendCommand(json_command)
 
 	if !isLeader {
 		reply.IsLeader = false
@@ -97,14 +98,33 @@ func (kv *KvStore) Put(args *PutArgs, reply *PutReply) error {
 		return errors.New("index_out_of_sync")
 
 	} else {
-		store_put(kv, *args)
+		store_put(kv, args)
 		log.Printf("[Success] Message applied %+v", msg)
 	}
 
 	return nil
 }
 
-func store_put(kv *KvStore, args PutArgs) {
+func recoverStateFromLogs(kv *KvStore, logs []raft.LogEntry) {
+	for _,logEntry := range(logs) {
+		if logEntry.IsSnapshot {
+			continue
+			// skip for now
+		}
+
+		split_input := strings.Split(logEntry.Command.(string), ",")
+
+		if split_input[0] == "Put" {
+			txn, _ := strconv.Atoi(split_input[3])
+			args := &PutArgs{Key: split_input[1], Val: split_input[2], Txn: txn}
+			log.Printf("Recovering %+v", args)
+			store_put(kv, args)
+		}
+	}
+
+}
+
+func store_put(kv *KvStore, args *PutArgs) {
 	if vals, ok := kv.store[args.Key]; ok {
 		kv.store[args.Key] = append(vals, Element{val: args.Val, txn: args.Txn})
 	} else {

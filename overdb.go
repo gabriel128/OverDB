@@ -3,11 +3,12 @@ package main
 import (
 	"log"
 	"os"
-	// "time"
+	"time"
 	"overdb/src/servers"
 	"overdb/src/config"
 	// "overdb/src/tm"
 	"overdb/src/raft"
+	"overdb/src/client"
 	// "overdb/src/kvstore"
 	"strconv"
 )
@@ -42,10 +43,16 @@ func main() {
 			servers.StartHttpKvServer([]int{currentServer, peers[0], peers[1]}, commCh)
 		}()
 
+	} else if serverType == "client" {
+		client := new(client.Client)
+		client.Connect()
+
+		client.Console()
+
 	}
 
 	for {
-
+		time.Sleep(time.Minute)
 	}
 }
 

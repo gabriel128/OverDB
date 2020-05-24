@@ -13,7 +13,10 @@ type Client struct {
 	kvstores map[int][]*rpc.Client
 }
 
-func (client Client) Connect() {
+func (client *Client) Connect() {
+	client.kvstores = make(map[int][]*rpc.Client)
+	client.txn = 0
+
 	for k, servers := range(config.Servers.Kvstores) {
 		client.kvstores[k] = make([]*rpc.Client,3)
 
@@ -33,7 +36,7 @@ func (client *Client) Put(key string, val string) bool {
 	error := false
 
 	for i, _ := range(client.kvstores[store_for_key]) {
-		err := client.kvstores[store_for_key][i].Call("KvStore.Put", args, reply)
+		err := client.kvstores[store_for_key][i].Call("KvStore.Put", &args, &reply)
 
 		if err != nil {
 			error = true
@@ -55,7 +58,7 @@ func (client *Client) Get(key string) (string, int) {
 	store_for_key := key_from_hash(key)
 
 	for i, _ := range(client.kvstores[store_for_key]) {
-		err := client.kvstores[store_for_key][i].Call("KvStore.Get", args, reply)
+		err := client.kvstores[store_for_key][i].Call("KvStore.Get", &args, &reply)
 
 		if err != nil {
 			log.Println("Error on Get", err)
