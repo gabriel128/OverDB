@@ -1,6 +1,6 @@
 {
 	"CurrentTerm": 1,
-	"VotedFor": 8005,
+	"VotedFor": 8008,
 	"Log": [
 		{
 			"Term": 0,
@@ -10,7 +10,7 @@
 		},
 		{
 			"Term": 1,
-			"Command": "Put,a,3,0",
+			"Command": "Put,b,5,0",
 			"IsSnapshot": false,
 			"Data": null
 		}

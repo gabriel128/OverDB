@@ -2,6 +2,7 @@ package client
 
 import "overdb/src/config"
 import "overdb/src/dialers"
+import "overdb/src/sharding"
 import "overdb/src/kvstore"
 import "net/rpc"
 import "log"
@@ -73,5 +74,5 @@ func (client *Client) Get(key string) (string, int) {
 }
 
 func key_from_hash(key string) int {
-	return 0
+	return sharding.GetShard(key)
 }
