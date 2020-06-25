@@ -168,16 +168,18 @@ func applyLastCommit(rf *Raft, applyCh chan ApplyMsg) {
 		if rf.commitIndex > rf.lastApplied {
 
 			rf.lastApplied++
-			logEntry := rf.log[rf.lastApplied]
+			// logEntry := rf.log[rf.lastApplied]
 
-			log.Printf("[%d] [%s] [Applied log] %+v, commitIndex: %d", rf.me, rf.state, rf.log, rf.commitIndex)
+			// log.Printf("[%d] [%s] [Applied log] %+v, commitIndex: %d", rf.me, rf.state, rf.log, rf.commitIndex)
+			// log.Printf("[Applied Command in raft] %+v", logEntry)
+			// log.Printf("[Applied Command logs] %+v", rf.log)
 
 			go func(commandIndex int ) {
 				rf.persist()
 
 				applyCh <- ApplyMsg{
 					CommandValid: true,
-					Command: logEntry.Command,
+					Command: rf.log[len(rf.log) - 1].Command,
 					CommandIndex: commandIndex}
 			}(len(rf.log) - 1)
 

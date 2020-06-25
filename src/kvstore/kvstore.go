@@ -9,7 +9,7 @@ import "encoding/json"
 import "sync"
 // import "time"
 
-const max_log_entries int = 20
+const max_log_entries int = 5
 
 type Element struct {
 	Val string
@@ -71,15 +71,18 @@ func loadLogsInMemory(kv *KvStore) {
 		}
 
 		msg := <-kv.raftCommCh
-		log.Println("Got Here")
+		log.Println("Message is ", msg)
+
+
+		_, isLeader := kv.raft.GetState()
 
 		if msg.Command == "Snapshot" {
 			recoverStateFromLogs(kv, kv.raft.GetLogs())
 		} else {
 			storePut(kv, msg.Command.(string))
+			log.Printf("Putting in memory %+v \n", msg)
 		}
 
-		_, isLeader := kv.raft.GetState()
 		if isLeader {
 			kv.leaderResponse<-msg
 		}
@@ -90,6 +93,8 @@ func (kv *KvStore) Get(args *GetArgs, reply *GetReply) error {
 	log.Printf("[KvStore state] %+v", kv.store)
 
 	vals, ok := kv.store[args.Key]
+
+	log.Printf("[KvStore state] Vals %+v", vals)
 
 	if ok {
 		val := vals[len(vals)-1]
@@ -105,7 +110,10 @@ func (kv *KvStore) Get(args *GetArgs, reply *GetReply) error {
 func (kv *KvStore) Put(args *PutArgs, reply *PutReply) error {
 	log.Println("KvStore Put")
 
-	index, _, isLeader := kv.raft.SendCommand("Put,"+args.Key+","+args.Val+","+strconv.Itoa(args.Txn))
+	log.Println("Got Args ", args)
+
+	command := "Put,"+args.Key+","+args.Val+","+strconv.Itoa(args.Txn)
+	index, _, isLeader := kv.raft.SendCommand(command)
 
 	if !isLeader {
 		reply.IsLeader = false
@@ -126,9 +134,9 @@ func (kv *KvStore) Put(args *PutArgs, reply *PutReply) error {
 
 		return errors.New("index_out_of_sync")
 	} else {
-		// storePut(kv, args)
+		// storePut(kv, command)
 
-		log.Printf("[Success] Message applied %+v", msg)
+		log.Printf("[Success] command applied %+v", command)
 	}
 
 	return nil
@@ -150,6 +158,7 @@ func storePut(kv *KvStore, command string) {
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
 
+	log.Println("Command about to put is", command)
 	split_input := strings.Split(command, ",")
 
 	if split_input[0] == "Put" {
